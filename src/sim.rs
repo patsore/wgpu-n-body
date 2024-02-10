@@ -20,7 +20,13 @@ pub struct SimState {
 
 impl SimState {
     pub fn new(device: &Device) -> Self {
-        let bodies: Vec<Body> = generate_spiral_galaxy([0.0, 0.0], 10_000, 30000.0, 50.0);
+        let mut bodies: Vec<Body> = gen_actual_spir_g([0.0, 32.5], [2.0, 6.0] ,50_000.0, 10_000, 2, true, 35.0);
+
+        let mut bodies_1: Vec<Body> = gen_actual_spir_g([0.0, -32.5], [-2.0, -6.0] ,50_000.0, 10_000, 2, true, 35.0);
+
+        bodies.append(&mut bodies_1);
+
+
         // let bodies = vec![
         //     Body::new(1000.0, [-3.0, 0.0], [0.0, -5.0]),
         //     Body::new(1000.0, [3.0, 0.0], [0.0, 5.0]),
@@ -47,8 +53,8 @@ impl SimState {
             label: Some("GPU positions buffer"),
             contents: bytemuck::cast_slice(positions.as_slice()),
             usage: wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::COPY_SRC
-                // | wgpu::BufferUsages::VERTEX,
+                | wgpu::BufferUsages::COPY_SRC,
+            // | wgpu::BufferUsages::VERTEX,
         });
 
         //todo initial velocities can be set through this buffer (unimplemented)
@@ -148,13 +154,12 @@ impl SimState {
             positions_buffer,
             output_positions,
 
-
             input_bind_group,
             compute_pipeline,
         }
     }
 
-    pub async fn tick(&mut self, device: &Device, queue: &Queue){ // -> Vec<[f32;2]> {
+    pub async fn tick(&mut self, device: &Device, queue: &Queue) { // -> Vec<[f32;2]> {
         let mut encoder = device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor { label: None },
         );
@@ -173,36 +178,7 @@ impl SimState {
 
         let sub_index = queue.submit(Some(encoder.finish()));
         device.poll(Maintain::WaitForSubmissionIndex(sub_index));
-
-        // return self.map_output_to_positions(device).await;
     }
-
-    // pub async fn map_output_to_positions(&self, device: &Device) -> Vec<[f32; 2]> {
-    //     let buffer_slice = self.output_positions.slice(..);
-    //     let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
-    //     buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-    //         tx.send(result).unwrap();
-    //     });
-    //     // wait for the GPU to finish
-    //     device.poll(wgpu::Maintain::Wait);
-    //
-    //     return match rx.receive().await {
-    //         Some(Ok(())) => {
-    //             let data = buffer_slice.get_mapped_range();
-    //             let bodies: &[[f32; 2]] = bytemuck::cast_slice(&*data);
-    //
-    //             let bodies = bodies.to_vec();
-    //
-    //             drop(data);
-    //             self.output_positions.unmap();
-    //             bodies
-    //         }
-    //         _ => {
-    //             eprintln!("Something went wrong");
-    //             vec![]
-    //         }
-    //     };
-    // }
 }
 
 //struct to be passed to gpu
@@ -211,17 +187,78 @@ impl SimState {
 pub struct Body {
     pub position: [f32; 2],
     pub mass: f32,
-    pub velocity: [f32;2],
+    pub velocity: [f32; 2],
 }
 
 impl Body {
-    pub fn new(mass: f32,position: [f32; 2], velocity: [f32;2]) -> Self {
+    pub fn new(mass: f32, position: [f32; 2], velocity: [f32; 2]) -> Self {
         Self {
             mass,
             position,
             velocity,
         }
     }
+}
+
+//galaxies should be spinning counter-clockwise probably
+pub fn gen_actual_spir_g(center_pos: [f32; 2], center_velocity: [f32;2], center_mass: f32, num_bodies: u32, num_arms: u32, clockwise: bool, radius: f32) -> Vec<Body> {
+    let center_body = Body::new(center_mass, center_pos, center_velocity);
+
+    let p_per_arm = (num_bodies / num_arms);
+
+
+    const VEL_MULT: f32 = 30.0;
+    //how closely to the center the arms will spin around.
+    const ARM_ANGLE: f32 = 10.0;
+    let arm_distance = (radius / p_per_arm as f32);
+
+    let mut arms = (0..360).step_by(360 / num_arms as usize).map(|i| {
+        let angle_rad = (i as f32).to_radians();
+        (0..p_per_arm).map(move |j| {
+
+
+            let angle_rad = ((i + j) as f32).to_radians();
+
+            let tangent_angle = if clockwise {
+                angle_rad + PI / 2.0 // Rotate clockwise by 90 degrees
+            } else {
+                angle_rad - PI / 2.0 // Rotate counterclockwise by 90 degrees
+            };
+
+            let radius = (j as f32) * arm_distance;
+            let x = center_pos[0] + radius * angle_rad.cos();
+            let y = center_pos[1] + radius * angle_rad.sin();
+            let velocity = [tangent_angle.cos() * VEL_MULT, tangent_angle.sin() * VEL_MULT];
+            Body::new(2.0, [x, y], velocity)
+        })
+    }).flatten().collect::<Vec<_>>();
+
+    //generate particle cloud with all the remaining particles of the num_bodies (maybe replace the num_bodies here with something else)
+    // Generate particles that don't belong to the arms
+    let mut rng = rand::thread_rng();
+    let mut other_particles = Vec::new();
+    for _ in 0..(num_bodies) {
+        let angle = rng.gen_range(0.0..2.0 * PI);
+        let tangent_angle = if clockwise {
+            angle + PI / 2.0 // Rotate clockwise by 90 degrees
+        } else {
+            angle - PI / 2.0 // Rotate counterclockwise by 90 degrees
+        };
+
+        let distance = rng.gen_range(0.0..radius);
+        let x = center_pos[0] + distance * angle.cos();
+        let y = center_pos[1] + distance * angle.sin();
+
+        let velocity = [tangent_angle.cos() * VEL_MULT, tangent_angle.sin() * VEL_MULT];
+        other_particles.push(Body::new(1.0, [x, y], velocity));
+    }
+
+
+    let mut bodies: Vec<Body> = vec![center_body];
+    bodies.append(&mut arms);
+    bodies.append(&mut other_particles);
+
+    return bodies;
 }
 
 pub fn generate_spiral_galaxy(
@@ -269,3 +306,5 @@ pub fn generate_spiral_galaxy(
 
     bodies
 }
+
+

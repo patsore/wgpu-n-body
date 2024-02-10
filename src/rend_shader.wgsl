@@ -36,6 +36,7 @@ fn vs_main(
     @builtin(vertex_index) index: u32,
 //    body: Body,
     @location(0) world_pos: vec2<f32>,
+
 ) -> VertexOutput{
       var out: VertexOutput;
 
@@ -45,7 +46,7 @@ fn vs_main(
 
       out.local_position = local_position;
 //      out.color = vec4<f32>(viridis_quintic(body.mass), 1.0);
-      out.color = vec4<f32>(1.0, 1.0, 1.0, 0.00392156862);
+      out.color = vec4<f32>(1.0, 1.0, 1.0, 0.0392156862);
       return out;
 }
 
@@ -54,7 +55,7 @@ fn viridis_quintic(in: f32) -> vec3<f32>{
         let x1 = vec4<f32>( 1.0, x, x * x, x * x * x ); // 1 x x2 x3
         let x2 = x1 * x1.w * x; // x4 x5 x6 x7
         return vec3<f32>(
-                dot( x1.xyzw, vec4( 0.280268003, -0.143510503, 2.225793877, -14.815088879 ) ) + dot( x2.xy, vec2( 25.212752309, -11.772589584 ) ),
+                dot( x1.xyzw, vec4( 0.0280268003, -0.143510503, 2.225793877, -14.815088879 ) ) + dot( x2.xy, vec2( 25.212752309, -11.772589584 ) ),
                 dot( x1.xyzw, vec4( -0.002117546, 1.617109353, -1.909305070, 2.701152864 ) ) + dot( x2.xy, vec2( -1.685288385, 0.178738871 ) ),
                 dot( x1.xyzw, vec4( 0.300805501, 2.614650302, -12.019139090, 28.933559110 ) ) + dot( x2.xy, vec2( -33.491294770, 13.762053843 ) ) );
 
