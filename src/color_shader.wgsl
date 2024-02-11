@@ -32,6 +32,8 @@ fn vs_main(
       return out;
 }
 
+//Found this here - https://www.shadertoy.com/view/XtGGzG
+//Had to rewrite it to wgsl.
 fn magma_quintic(in: f32) -> vec3<f32>{
         let x = clamp(in, 0.0, 1.0);
         let x1 = vec4<f32>( 1.0, x, x * x, x * x * x ); // 1 x x2 x3
