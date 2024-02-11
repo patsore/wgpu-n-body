@@ -1,3 +1,5 @@
+//some of this code was taken (and modified to use 2 dimensions, different buffer layout) from 
+//https://github.com/Canleskis/particular/blob/main/particular/src/compute_method/gpu_compute/compute.wgsl 
 
 const kSoftening = 1.0;
 const DT = 0.01;
