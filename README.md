@@ -16,3 +16,5 @@ This allows the second pass to recolor every pixel according to the magma color 
 
 # Showcase
 
+https://github.com/patsore/wgpu-n-body/assets/80210497/5f36416f-763b-4cf7-8f50-14da18d9ce43
+
